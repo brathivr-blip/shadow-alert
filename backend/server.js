@@ -18,7 +18,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173,https://shadow-alert.netlify.app';
 
 const io = new Server(server, {
   cors: { origin: clientUrl, credentials: true },

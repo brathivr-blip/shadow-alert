@@ -73,6 +73,20 @@ npm run dev                # starts the client on http://localhost:5173
 The Vite dev server proxies `/api`, `/uploads`, and `/socket.io` to
 `http://localhost:5000`, so both servers just need to be running side by side.
 
+For the Netlify deployment, set these environment variables in the Netlify project:
+
+```text
+MONGO_URI=<your MongoDB Atlas connection string>
+JWT_SECRET=<a long random secret>
+JWT_EXPIRES_IN=7d
+CLIENT_URL=https://shadow-alert.netlify.app
+NODE_ENV=production
+```
+
+The Express API is exposed through a Netlify Function at `/api`. Socket.io live
+events are available when using the traditional Node server, but are not supported
+by Netlify Functions.
+
 ## 3. Using the app
 
 1. Open `http://localhost:5173` and create an account (or log in as the seeded admin).
