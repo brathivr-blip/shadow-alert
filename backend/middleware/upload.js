@@ -2,7 +2,11 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const uploadDir = path.join(__dirname, '..', 'uploads');
+// Netlify/Lambda only allows writes under /tmp.
+const uploadDir = process.env.AWS_LAMBDA_FUNCTION_NAME
+  ? path.join('/tmp', 'shadow-alert-uploads')
+  : path.join(__dirname, '..', 'uploads');
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
