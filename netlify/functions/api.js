@@ -4,6 +4,6 @@ const { app, connectDB } = require('../../backend/server');
 const handler = serverless(app);
 
 module.exports.handler = async (event, context) => {
-  await connectDB();
+  if (!event.path.endsWith('/health')) await connectDB();
   return handler(event, context);
 };
