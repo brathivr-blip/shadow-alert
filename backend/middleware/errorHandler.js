@@ -5,8 +5,13 @@ const notFound = (req, res, next) => {
 
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
-  let statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
+  let statusCode = err.statusCode || (res.statusCode && res.statusCode !== 200 ? res.statusCode : 500);
   let message = err.message || 'Server error';
+
+  if (err instanceof SyntaxError && err.type === 'entity.parse.failed') {
+    statusCode = 400;
+    message = 'Invalid JSON request body.';
+  }
 
   if (err.name === 'CastError') {
     statusCode = 404;
