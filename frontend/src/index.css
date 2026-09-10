@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: #0b1220;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(245, 166, 35, 0.08), transparent 40%),
+      radial-gradient(circle at 85% 20%, rgba(52, 211, 153, 0.05), transparent 35%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+  ::selection {
+    background: rgba(245, 166, 35, 0.35);
+  }
+  *:focus-visible {
+    outline: 2px solid #F5A623;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-midnight-800/80 border border-midnight-600/60 rounded-2xl shadow-card backdrop-blur-sm;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-glow text-midnight-950 font-semibold px-5 py-2.5 transition hover:bg-glow-soft active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-midnight-500 text-ink-100 font-medium px-5 py-2.5 transition hover:border-glow hover:text-glow disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-alert/90 text-white font-semibold px-5 py-2.5 transition hover:bg-alert disabled:opacity-50;
+  }
+  .input-field {
+    @apply w-full rounded-xl bg-midnight-900 border border-midnight-600 px-4 py-2.5 text-ink-100 placeholder:text-ink-700 focus:border-glow transition;
+  }
+  .label {
+    @apply block text-sm text-ink-300 mb-1.5;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium;
+  }
+}
+
+.leaflet-container {
+  background: #0b1220 !important;
+  font-family: 'Inter', sans-serif;
+}
+.leaflet-popup-content-wrapper {
+  background: #131B2E;
+  color: #EDF1F9;
+  border-radius: 12px;
+}
+.leaflet-popup-tip {
+  background: #131B2E;
+}
