@@ -16,6 +16,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const server = http.createServer(app);
+const PORT = process.env.PORT || 5000;
 
 const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -30,8 +31,6 @@ io.on('connection', (socket) => {
 });
 
 app.set('io', io);
-
-connectDB();
 
 app.use(cors({ origin: clientUrl, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
@@ -50,7 +49,16 @@ app.use('/api/notifications', notificationRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`[shadow-alert] API + sockets running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
-});
+if (require.main === module) {
+  connectDB()
+    .then(() => {
+      server.listen(PORT, () => {
+        console.log(`[shadow-alert] API + sockets running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+      });
+    })
+    .catch(() => {
+      process.exitCode = 1;
+    });
+}
+
+module.exports = { app, connectDB };
