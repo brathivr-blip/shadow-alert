@@ -1,7 +1,11 @@
 [build]
-  command = "npm --prefix frontend ci && npm --prefix frontend run build"
+  command = "npm ci && npm --prefix frontend ci && npm --prefix frontend run build"
   publish = "frontend/dist"
   functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["backend/**"]
 
 [[redirects]]
   from = "/api/*"

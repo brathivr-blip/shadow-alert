@@ -47,6 +47,22 @@ export default function Dashboard() {
         setStats(statsRes.data.stats);
         setMyReports(reportsRes.data.reports);
       })
+      .catch(() => {
+        // DEMO MODE – Remove before production.
+        // Show an empty dashboard when the API or database is unavailable.
+        setStats({
+          total: 0,
+          pending: 0,
+          verified: 0,
+          inProgress: 0,
+          resolved: 0,
+          rejected: 0,
+          byCategory: {},
+          timeline: [],
+          avgResolutionHours: null,
+        });
+        setMyReports([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

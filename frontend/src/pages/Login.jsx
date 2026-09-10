@@ -20,6 +20,8 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
+      // DEMO MODE – Remove before production.
+      // Always succeeds locally; no API or MongoDB credential check.
       await login(form.email, form.password);
       navigate(from, { replace: true });
     } catch (err) {

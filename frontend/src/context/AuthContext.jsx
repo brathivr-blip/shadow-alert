@@ -2,18 +2,25 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import api from '../api/axios';
 
 const AuthContext = createContext(null);
-// Demo Mode
-const DEMO_EMAIL = 'demo@shadowalert.com';
-const DEMO_PASSWORD = 'Shadow@2026';
-const DEMO_TOKEN = 'demo-header.demo-payload.demo-signature';
-const DEMO_USER = {
-  _id: 'demo-user',
-  name: 'Demo User',
-  email: DEMO_EMAIL,
-  role: 'citizen',
-  points: 0,
-  avatarColor: '#34D399',
-};
+
+// DEMO MODE – Remove before production.
+const DEMO_TOKEN = 'demo-token';
+
+// DEMO MODE – Remove before production.
+function createDemoUser(email) {
+  const normalizedEmail = (email || '').trim().toLowerCase() || 'demo@shadowalert.com';
+  const namePart = normalizedEmail.split('@')[0] || 'Demo User';
+  const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+
+  return {
+    _id: 'demo-user',
+    name: displayName,
+    email: normalizedEmail,
+    role: 'citizen',
+    points: 0,
+    avatarColor: '#34D399',
+  };
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -28,12 +35,16 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
+
+    // DEMO MODE – Remove before production.
+    // Restore demo session from localStorage without calling the backend.
     if (token === DEMO_TOKEN) {
-      setUser(DEMO_USER);
-      localStorage.setItem('shadowalert_user', JSON.stringify(DEMO_USER));
+      const stored = localStorage.getItem('shadowalert_user');
+      setUser(stored ? JSON.parse(stored) : createDemoUser('demo@shadowalert.com'));
       setLoading(false);
       return;
     }
+
     api
       .get('/auth/me')
       .then(({ data }) => {
@@ -46,20 +57,14 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    // Demo Mode
-    if (email.trim().toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD) {
-      localStorage.setItem('shadowalert_token', DEMO_TOKEN);
-      localStorage.setItem('shadowalert_user', JSON.stringify(DEMO_USER));
-      setUser(DEMO_USER);
-      return DEMO_USER;
-    }
-
-    const { data } = await api.post('/auth/login', { email, password });
-    localStorage.setItem('shadowalert_token', data.token);
-    localStorage.setItem('shadowalert_user', JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
+  const login = useCallback(async (email) => {
+    // DEMO MODE – Remove before production.
+    // Accept any email/password; do not validate against MongoDB or any API.
+    const demoUser = createDemoUser(email);
+    localStorage.setItem('shadowalert_token', DEMO_TOKEN);
+    localStorage.setItem('shadowalert_user', JSON.stringify(demoUser));
+    setUser(demoUser);
+    return demoUser;
   }, []);
 
   const register = useCallback(async (payload) => {
@@ -71,6 +76,18 @@ export function AuthProvider({ children }) {
   }, []);
 
   const updateProfile = useCallback(async (payload) => {
+    const token = localStorage.getItem('shadowalert_token');
+
+    // DEMO MODE – Remove before production.
+    if (token === DEMO_TOKEN) {
+      const stored = localStorage.getItem('shadowalert_user');
+      const current = stored ? JSON.parse(stored) : createDemoUser('demo@shadowalert.com');
+      const updated = { ...current, ...payload };
+      localStorage.setItem('shadowalert_user', JSON.stringify(updated));
+      setUser(updated);
+      return updated;
+    }
+
     const { data } = await api.put('/auth/me', payload);
     localStorage.setItem('shadowalert_user', JSON.stringify(data.user));
     setUser(data.user);
