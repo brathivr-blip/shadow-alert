@@ -2,6 +2,18 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import api from '../api/axios';
 
 const AuthContext = createContext(null);
+// Demo Mode
+const DEMO_EMAIL = 'demo@shadowalert.com';
+const DEMO_PASSWORD = 'Shadow@2026';
+const DEMO_TOKEN = 'demo-header.demo-payload.demo-signature';
+const DEMO_USER = {
+  _id: 'demo-user',
+  name: 'Demo User',
+  email: DEMO_EMAIL,
+  role: 'citizen',
+  points: 0,
+  avatarColor: '#34D399',
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -13,6 +25,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('shadowalert_token');
     if (!token) {
+      setLoading(false);
+      return;
+    }
+    if (token === DEMO_TOKEN) {
+      setUser(DEMO_USER);
+      localStorage.setItem('shadowalert_user', JSON.stringify(DEMO_USER));
       setLoading(false);
       return;
     }
@@ -29,6 +47,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
+    // Demo Mode
+    if (email.trim().toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD) {
+      localStorage.setItem('shadowalert_token', DEMO_TOKEN);
+      localStorage.setItem('shadowalert_user', JSON.stringify(DEMO_USER));
+      setUser(DEMO_USER);
+      return DEMO_USER;
+    }
+
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem('shadowalert_token', data.token);
     localStorage.setItem('shadowalert_user', JSON.stringify(data.user));
