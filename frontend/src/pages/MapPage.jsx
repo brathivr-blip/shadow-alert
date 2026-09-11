@@ -18,6 +18,7 @@ export default function MapPage() {
   const [center, setCenter] = useState([20.5937, 78.9629]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationState, setLocationState] = useState('idle');
+  const [locationError, setLocationError] = useState('');
   const [mapError, setMapError] = useState('');
   const watchIdRef = useRef(null);
 
@@ -43,6 +44,7 @@ export default function MapPage() {
 
     stopWatchingLocation();
     setLocationState('loading');
+    setLocationError('');
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         const location = [coords.latitude, coords.longitude];
@@ -56,11 +58,18 @@ export default function MapPage() {
             setSelectedLocation(nextLocation);
             setLocationState('live');
           },
-          (error) => setLocationState(error.code === 1 ? 'denied' : 'error'),
+          (error) => {
+            stopWatchingLocation();
+            setLocationError(getLocationError(error));
+            setLocationState(error.code === 1 ? 'denied' : 'error');
+          },
           { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
         );
       },
-      (error) => setLocationState(error.code === 1 ? 'denied' : 'error'),
+      (error) => {
+        setLocationError(getLocationError(error));
+        setLocationState(error.code === 1 ? 'denied' : 'error');
+      },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 }
     );
   };
@@ -71,6 +80,7 @@ export default function MapPage() {
     stopWatchingLocation();
     setCenter(location);
     setSelectedLocation(location);
+    setLocationError('');
     setLocationState('manual');
   };
 
@@ -114,10 +124,10 @@ export default function MapPage() {
         </div>
       </div>
 
-      {locationState === 'denied' && <p className="mb-4 text-sm text-ink-500">Location access was denied. Enable it in your browser settings.</p>}
       {locationState === 'unsupported' && <p className="mb-4 text-sm text-ink-500">This browser does not support location access.</p>}
-      {locationState === 'error' && <p className="mb-4 text-sm text-ink-500">Unable to read your live location. Check browser permissions and device location services.</p>}
+      {(locationState === 'denied' || locationState === 'error') && <p className="mb-4 text-sm text-ink-500">{locationError}</p>}
       {locationState === 'live' && <p className="mb-4 text-sm text-glow">Live location is active. Tap the map to choose another point.</p>}
+      {locationState === 'manual' && <p className="mb-4 text-sm text-ink-500">Manual map point selected. Click Use my location for live GPS.</p>}
       {mapError && <p className="mb-4 text-sm text-ink-500">{mapError}</p>}
       {loading ? <Loader label="Loading map" /> : (
         <MapView
