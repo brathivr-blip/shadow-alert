@@ -18,9 +18,11 @@ export default function MapPage() {
   const [center, setCenter] = useState([20.5937, 78.9629]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationState, setLocationState] = useState('idle');
+  const [permissionState, setPermissionState] = useState('prompt');
   const [locationError, setLocationError] = useState('');
   const [mapError, setMapError] = useState('');
   const [copiedLocation, setCopiedLocation] = useState(false);
+  const [telemetry, setTelemetry] = useState({ accuracy: null, speed: null, heading: null, updatedAt: null });
   const watchIdRef = useRef(null);
 
   const locationId = selectedLocation
@@ -48,7 +50,39 @@ export default function MapPage() {
     return 'Unable to read your location. Try again or tap the map to choose a point.';
   };
 
-  const useMyLocation = () => {
+  const sendLiveLocation = async (coords) => {
+    const token = localStorage.getItem('shadowalert_token');
+    if (!token || token === 'demo-token') return;
+    try {
+      await api.patch('/auth/location', {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        speed: coords.speed,
+        heading: coords.heading,
+      });
+    } catch {
+      // GPS display remains local if the optional persistence request fails.
+    }
+  };
+
+  const handlePosition = (position) => {
+    const { coords } = position;
+    setPermissionState('granted');
+    const location = [coords.latitude, coords.longitude];
+    setCenter(location);
+    setSelectedLocation(location);
+    setTelemetry({
+      accuracy: coords.accuracy,
+      speed: coords.speed,
+      heading: coords.heading,
+      updatedAt: new Date(),
+    });
+    setLocationState('live');
+    sendLiveLocation(coords);
+  };
+
+  const startLiveTracking = () => {
     if (!navigator.geolocation) {
       setLocationState('unsupported');
       return;
@@ -57,36 +91,36 @@ export default function MapPage() {
     stopWatchingLocation();
     setLocationState('loading');
     setLocationError('');
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const location = [coords.latitude, coords.longitude];
-        setCenter(location);
-        setSelectedLocation(location);
-        setLocationState('live');
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          ({ coords: nextCoords }) => {
-            const nextLocation = [nextCoords.latitude, nextCoords.longitude];
-            setCenter(nextLocation);
-            setSelectedLocation(nextLocation);
-            setLocationState('live');
-          },
-          (error) => {
-            stopWatchingLocation();
-            setLocationError(getLocationError(error));
-            setLocationState(error.code === 1 ? 'denied' : 'error');
-          },
-          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-        );
-      },
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      handlePosition,
       (error) => {
+        if (error.code === 1) setPermissionState('denied');
         setLocationError(getLocationError(error));
         setLocationState(error.code === 1 ? 'denied' : 'error');
+        stopWatchingLocation();
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
   };
 
-  useEffect(() => () => stopWatchingLocation(), []);
+  const stopLiveTracking = () => {
+    stopWatchingLocation();
+    setLocationState('stopped');
+  };
+
+  useEffect(() => {
+    if (!navigator.permissions?.query) return undefined;
+    let permission;
+    navigator.permissions.query({ name: 'geolocation' }).then((status) => {
+      permission = status;
+      setPermissionState(status.state);
+      status.onchange = () => setPermissionState(status.state);
+    }).catch(() => {});
+    return () => {
+      if (permission) permission.onchange = null;
+      stopWatchingLocation();
+    };
+  }, []);
 
   const handleMapLocationChange = (location) => {
     stopWatchingLocation();
@@ -117,9 +151,15 @@ export default function MapPage() {
           <p className="mt-1 text-ink-500">Every reported streetlight, plotted where it stands.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={useMyLocation} disabled={locationState === 'loading'} className="btn-secondary">
-            {locationState === 'loading' ? 'Locating...' : locationState === 'live' ? 'Live location on' : 'Use my location'}
-          </button>
+          {locationState === 'live' || locationState === 'loading' ? (
+            <button type="button" onClick={stopLiveTracking} className="btn-secondary">
+              {locationState === 'loading' ? 'Acquiring GPS...' : 'Stop Tracking'}
+            </button>
+          ) : (
+            <button type="button" onClick={startLiveTracking} disabled={locationState === 'unsupported'} className="btn-secondary">
+              Start Live Tracking
+            </button>
+          )}
           {LEGEND.map((l) => (
             <button
               key={l.status}
@@ -138,14 +178,25 @@ export default function MapPage() {
 
       {locationState === 'unsupported' && <p className="mb-4 text-sm text-ink-500">This browser does not support location access.</p>}
       {(locationState === 'denied' || locationState === 'error') && <p className="mb-4 text-sm text-ink-500">{locationError}</p>}
-      {locationState === 'live' && <p className="mb-4 text-sm text-glow">Live location is active. Tap the map to choose another point.</p>}
-      {locationState === 'manual' && <p className="mb-4 text-sm text-ink-500">Manual map point selected. Click Use my location for live GPS.</p>}
+      {locationState === 'loading' && <p className="mb-4 text-sm text-glow">Acquiring GPS location...</p>}
+      {locationState === 'live' && <p className="mb-4 text-sm text-glow">Live GPS is active. Tap Stop Tracking to end it.</p>}
+      {permissionState === 'prompt' && locationState === 'idle' && <p className="mb-4 text-sm text-ink-500">Location permission will be requested when you start tracking.</p>}
+      <p className="mb-4 text-xs uppercase tracking-wide text-ink-600">GPS permission: {permissionState}</p>
+      {locationState === 'manual' && <p className="mb-4 text-sm text-ink-500">Manual map point selected. Click Start Live Tracking for live GPS.</p>}
       {locationId && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-300">
           <span>Location ID: <strong className="font-mono text-ink-100">{locationId}</strong></span>
           <button type="button" onClick={copyLocationId} className="text-glow hover:underline">
             {copiedLocation ? 'Copied' : 'Copy'}
           </button>
+        </div>
+      )}
+      {telemetry.updatedAt && (
+        <div className="mb-4 grid max-w-xl grid-cols-2 gap-2 text-xs text-ink-400 sm:grid-cols-4">
+          <span>Accuracy: <strong className="text-ink-100">{Math.round(telemetry.accuracy)} m</strong></span>
+          <span>Speed: <strong className="text-ink-100">{telemetry.speed == null ? '—' : `${(telemetry.speed * 3.6).toFixed(1)} km/h`}</strong></span>
+          <span>Heading: <strong className="text-ink-100">{telemetry.heading == null ? '—' : `${Math.round(telemetry.heading)}°`}</strong></span>
+          <span>Updated: <strong className="text-ink-100">{telemetry.updatedAt.toLocaleTimeString()}</strong></span>
         </div>
       )}
       {mapError && <p className="mb-4 text-sm text-ink-500">{mapError}</p>}

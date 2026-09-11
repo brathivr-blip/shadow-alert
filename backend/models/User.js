@@ -18,6 +18,14 @@ const userSchema = new mongoose.Schema(
     ward: { type: String, trim: true, default: '' },
     points: { type: Number, default: 0 },
     avatarColor: { type: String, default: '#F5A623' },
+    liveLocation: {
+      latitude: { type: Number, min: -90, max: 90 },
+      longitude: { type: Number, min: -180, max: 180 },
+      accuracy: { type: Number, min: 0 },
+      speed: { type: Number, min: 0, default: null },
+      heading: { type: Number, min: 0, max: 360, default: null },
+      updatedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

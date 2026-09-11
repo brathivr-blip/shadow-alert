@@ -76,4 +76,30 @@ const updateMe = asyncHandler(async (req, res) => {
   res.json({ success: true, user: req.user.toSafeObject() });
 });
 
-module.exports = { register, login, getMe, updateMe };
+// Store only coordinates supplied by the browser's W3C Geolocation API.
+const updateLocation = asyncHandler(async (req, res) => {
+  const { latitude, longitude, accuracy, speed, heading } = req.body;
+  const values = [latitude, longitude, accuracy];
+
+  if (!values.every((value) => Number.isFinite(Number(value)))) {
+    res.status(400);
+    throw new Error('Latitude, longitude, and accuracy are required.');
+  }
+  if (Number(latitude) < -90 || Number(latitude) > 90 || Number(longitude) < -180 || Number(longitude) > 180) {
+    res.status(400);
+    throw new Error('Invalid geographic coordinates.');
+  }
+
+  req.user.liveLocation = {
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    accuracy: Math.max(0, Number(accuracy)),
+    speed: Number.isFinite(Number(speed)) && Number(speed) >= 0 ? Number(speed) : null,
+    heading: Number.isFinite(Number(heading)) && Number(heading) >= 0 ? Number(heading) % 360 : null,
+    updatedAt: new Date(),
+  };
+  await req.user.save();
+  res.json({ success: true, liveLocation: req.user.liveLocation });
+});
+
+module.exports = { register, login, getMe, updateMe, updateLocation };
