@@ -20,7 +20,19 @@ export default function MapPage() {
   const [locationState, setLocationState] = useState('idle');
   const [locationError, setLocationError] = useState('');
   const [mapError, setMapError] = useState('');
+  const [copiedLocation, setCopiedLocation] = useState(false);
   const watchIdRef = useRef(null);
+
+  const locationId = selectedLocation
+    ? `${selectedLocation[0].toFixed(6)}, ${selectedLocation[1].toFixed(6)}`
+    : '';
+
+  const copyLocationId = async () => {
+    if (!locationId) return;
+    await navigator.clipboard?.writeText(locationId);
+    setCopiedLocation(true);
+    window.setTimeout(() => setCopiedLocation(false), 1600);
+  };
 
   const stopWatchingLocation = () => {
     if (watchIdRef.current !== null) {
@@ -128,6 +140,14 @@ export default function MapPage() {
       {(locationState === 'denied' || locationState === 'error') && <p className="mb-4 text-sm text-ink-500">{locationError}</p>}
       {locationState === 'live' && <p className="mb-4 text-sm text-glow">Live location is active. Tap the map to choose another point.</p>}
       {locationState === 'manual' && <p className="mb-4 text-sm text-ink-500">Manual map point selected. Click Use my location for live GPS.</p>}
+      {locationId && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-300">
+          <span>Location ID: <strong className="font-mono text-ink-100">{locationId}</strong></span>
+          <button type="button" onClick={copyLocationId} className="text-glow hover:underline">
+            {copiedLocation ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      )}
       {mapError && <p className="mb-4 text-sm text-ink-500">{mapError}</p>}
       {loading ? <Loader label="Loading map" /> : (
         <GoogleStyleMap
