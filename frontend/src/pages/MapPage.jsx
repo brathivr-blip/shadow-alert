@@ -18,6 +18,7 @@ export default function MapPage() {
   const [center, setCenter] = useState([20.5937, 78.9629]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationState, setLocationState] = useState('idle');
+  const [mapError, setMapError] = useState('');
   const watchIdRef = useRef(null);
 
   const stopWatchingLocation = () => {
@@ -75,9 +76,14 @@ export default function MapPage() {
 
   useEffect(() => {
     setLoading(true);
+    setMapError('');
     api
       .get('/reports/map', { params: statusFilter ? { status: statusFilter } : {} })
       .then(({ data }) => setReports(data.reports))
+      .catch(() => {
+        setReports([]);
+        setMapError('Report data is temporarily unavailable. The live map and location controls are still active.');
+      })
       .finally(() => setLoading(false));
   }, [statusFilter]);
 
@@ -112,6 +118,7 @@ export default function MapPage() {
       {locationState === 'unsupported' && <p className="mb-4 text-sm text-ink-500">This browser does not support location access.</p>}
       {locationState === 'error' && <p className="mb-4 text-sm text-ink-500">Unable to read your live location. Check browser permissions and device location services.</p>}
       {locationState === 'live' && <p className="mb-4 text-sm text-glow">Live location is active. Tap the map to choose another point.</p>}
+      {mapError && <p className="mb-4 text-sm text-ink-500">{mapError}</p>}
       {loading ? <Loader label="Loading map" /> : (
         <MapView
           reports={reports}
