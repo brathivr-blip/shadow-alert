@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import api from '../api/axios';
 import MapView from '../components/MapView';
 import Loader from '../components/Loader';
@@ -18,6 +18,21 @@ export default function MapPage() {
   const [center, setCenter] = useState([20.5937, 78.9629]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationState, setLocationState] = useState('idle');
+  const watchIdRef = useRef(null);
+
+  const stopWatchingLocation = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation?.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  };
+
+  const getLocationError = (error) => {
+    if (error.code === 1) return 'Location access was denied. Allow location access for this site, then try again.';
+    if (error.code === 2) return 'Your location could not be found. Check your device location services and try again.';
+    if (error.code === 3) return 'Location request timed out. Check your connection and try again.';
+    return 'Unable to read your location. Try again or tap the map to choose a point.';
+  };
 
   const useMyLocation = () => {
     if (!navigator.geolocation) {
@@ -25,31 +40,37 @@ export default function MapPage() {
       return;
     }
 
+    stopWatchingLocation();
     setLocationState('loading');
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      const location = [coords.latitude, coords.longitude];
-      setCenter(location);
-      setSelectedLocation(location);
-      setLocationState('ready');
-    }, () => setLocationState('denied'),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const location = [coords.latitude, coords.longitude];
+        setCenter(location);
+        setSelectedLocation(location);
+        setLocationState('live');
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          ({ coords: nextCoords }) => {
+            const nextLocation = [nextCoords.latitude, nextCoords.longitude];
+            setCenter(nextLocation);
+            setSelectedLocation(nextLocation);
+            setLocationState('live');
+          },
+          (error) => setLocationState(error.code === 1 ? 'denied' : 'error'),
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        );
+      },
+      (error) => setLocationState(error.code === 1 ? 'denied' : 'error'),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 }
     );
   };
 
-  useEffect(() => {
-    if (!navigator.geolocation) return undefined;
-    const watchId = navigator.geolocation.watchPosition(({ coords }) => {
-      const location = [coords.latitude, coords.longitude];
-      setCenter(location);
-      setSelectedLocation(location);
-      setLocationState('live');
-    }, () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, []);
+  useEffect(() => () => stopWatchingLocation(), []);
 
   const handleMapLocationChange = (location) => {
+    stopWatchingLocation();
     setCenter(location);
     setSelectedLocation(location);
+    setLocationState('manual');
   };
 
   useEffect(() => {
@@ -89,6 +110,7 @@ export default function MapPage() {
 
       {locationState === 'denied' && <p className="mb-4 text-sm text-ink-500">Location access was denied. Enable it in your browser settings.</p>}
       {locationState === 'unsupported' && <p className="mb-4 text-sm text-ink-500">This browser does not support location access.</p>}
+      {locationState === 'error' && <p className="mb-4 text-sm text-ink-500">Unable to read your live location. Check browser permissions and device location services.</p>}
       {locationState === 'live' && <p className="mb-4 text-sm text-glow">Live location is active. Tap the map to choose another point.</p>}
       {loading ? <Loader label="Loading map" /> : (
         <MapView
