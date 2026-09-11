@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import AIBadge from '../components/AIBadge';
 import CategoryTag from '../components/CategoryTag';
-import MapView from '../components/MapView';
+import GoogleStyleMap from '../components/GoogleStyleMap';
 import Loader from '../components/Loader';
 
 const STATUS_FLOW = ['pending', 'verified', 'in_progress', 'resolved', 'rejected'];
@@ -160,7 +160,7 @@ export default function ReportDetail() {
       <div className="mt-10">
         <h2 className="font-display text-lg font-semibold text-ink-100">Location</h2>
         <div className="mt-3">
-          <MapView reports={[report]} center={[lat, lng]} zoom={16} height="320px" />
+          <GoogleStyleMap reports={[report]} center={[lat, lng]} zoom={16} height="320px" />
         </div>
       </div>
 

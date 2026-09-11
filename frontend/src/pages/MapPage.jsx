@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import api from '../api/axios';
-import MapView from '../components/MapView';
+import GoogleStyleMap from '../components/GoogleStyleMap';
 import Loader from '../components/Loader';
 
 const LEGEND = [
@@ -130,7 +130,7 @@ export default function MapPage() {
       {locationState === 'manual' && <p className="mb-4 text-sm text-ink-500">Manual map point selected. Click Use my location for live GPS.</p>}
       {mapError && <p className="mb-4 text-sm text-ink-500">{mapError}</p>}
       {loading ? <Loader label="Loading map" /> : (
-        <MapView
+        <GoogleStyleMap
           reports={reports}
           center={center}
           selectedLocation={selectedLocation}
