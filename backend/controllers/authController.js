@@ -78,7 +78,7 @@ const updateMe = asyncHandler(async (req, res) => {
 
 // Store only coordinates supplied by the browser's W3C Geolocation API.
 const updateLocation = asyncHandler(async (req, res) => {
-  const { latitude, longitude, accuracy, speed, heading, locationType = 'current' } = req.body;
+  const { latitude, longitude, accuracy, speed, heading, address, locationType = 'current' } = req.body;
   const values = [latitude, longitude, accuracy];
 
   if (!values.every((value) => Number.isFinite(Number(value)))) {
@@ -94,6 +94,15 @@ const updateLocation = asyncHandler(async (req, res) => {
     latitude: Number(latitude),
     longitude: Number(longitude),
     accuracy: Math.max(0, Number(accuracy)),
+    address: address && typeof address === 'object' ? {
+      road: String(address.road || ''),
+      locality: String(address.locality || ''),
+      district: String(address.district || ''),
+      city: String(address.city || ''),
+      state: String(address.state || ''),
+      pincode: String(address.pincode || ''),
+      country: String(address.country || ''),
+    } : undefined,
   };
 
   if (locationType === 'initial') {

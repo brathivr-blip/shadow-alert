@@ -1,6 +1,16 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const addressSchema = new mongoose.Schema({
+  road: { type: String, default: '' },
+  locality: { type: String, default: '' },
+  district: { type: String, default: '' },
+  city: { type: String, default: '' },
+  state: { type: String, default: '' },
+  pincode: { type: String, default: '' },
+  country: { type: String, default: '' },
+}, { _id: false });
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: [true, 'Name is required'], trim: true, maxlength: 60 },
@@ -25,12 +35,14 @@ const userSchema = new mongoose.Schema(
       speed: { type: Number, min: 0, default: null },
       heading: { type: Number, min: 0, max: 360, default: null },
       updatedAt: { type: Date },
+      address: { type: addressSchema },
     },
     initialLocation: {
       latitude: { type: Number, min: -90, max: 90 },
       longitude: { type: Number, min: -180, max: 180 },
       accuracy: { type: Number, min: 0 },
       capturedAt: { type: Date },
+      address: { type: addressSchema },
     },
   },
   { timestamps: true }

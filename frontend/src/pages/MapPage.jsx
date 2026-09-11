@@ -11,6 +11,50 @@ const LEGEND = [
   { status: 'rejected', label: 'Rejected', color: '#E5484D' },
 ];
 
+const GEOCODE_DISTANCE_METERS = 75;
+
+function distanceBetween([lat1, lon1], [lat2, lon2]) {
+  const earthRadius = 6371000;
+  const radians = (value) => (value * Math.PI) / 180;
+  const deltaLat = radians(lat2 - lat1);
+  const deltaLon = radians(lon2 - lon1);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(radians(lat1)) * Math.cos(radians(lat2)) * Math.sin(deltaLon / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizeAddress(address = {}) {
+  return {
+    road: address.road || '',
+    locality: address.suburb || address.neighbourhood || address.village || '',
+    district: address.county || address.district || '',
+    city: address.city || address.town || address.municipality || address.city_district || '',
+    state: address.state || '',
+    pincode: address.postcode || '',
+    country: address.country || '',
+  };
+}
+
+function AddressFields({ address }) {
+  const fields = [
+    ['Street/Road', address?.road],
+    ['Area/Locality', address?.locality],
+    ['District', address?.district],
+    ['City/Town', address?.city],
+    ['State', address?.state],
+    ['Pincode', address?.pincode],
+    ['Country', address?.country],
+  ];
+
+  return (
+    <div className="mt-3 grid gap-1 text-xs text-ink-400 sm:grid-cols-2">
+      {fields.map(([label, value]) => (
+        <span key={label}>{label}: <strong className="text-ink-100">{value || 'Unavailable'}</strong></span>
+      ))}
+    </div>
+  );
+}
+
 export default function MapPage() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,8 +68,11 @@ export default function MapPage() {
   const [copiedLocation, setCopiedLocation] = useState(false);
   const [telemetry, setTelemetry] = useState({ accuracy: null, speed: null, heading: null, updatedAt: null });
   const [initialLocation, setInitialLocation] = useState(null);
+  const [currentAddress, setCurrentAddress] = useState(null);
+  const [addressError, setAddressError] = useState('');
   const watchIdRef = useRef(null);
   const initialCapturedRef = useRef(false);
+  const lastGeocodedLocationRef = useRef(null);
 
   const locationId = selectedLocation
     ? `${selectedLocation[0].toFixed(6)}, ${selectedLocation[1].toFixed(6)}`
@@ -52,7 +99,7 @@ export default function MapPage() {
     return 'Unable to read your location. Try again or tap the map to choose a point.';
   };
 
-  const sendLiveLocation = async (coords, locationType) => {
+  const sendLiveLocation = async (coords, locationType, address) => {
     const token = localStorage.getItem('shadowalert_token');
     if (!token || token === 'demo-token') return;
     try {
@@ -63,16 +110,48 @@ export default function MapPage() {
         speed: coords.speed,
         heading: coords.heading,
         locationType,
+        address,
       });
     } catch {
       // GPS display remains local if the optional persistence request fails.
     }
   };
 
-  const handlePosition = (position) => {
+  const reverseGeocode = async (latitude, longitude) => {
+    const query = new URLSearchParams({
+      format: 'jsonv2',
+      addressdetails: '1',
+      zoom: '18',
+      lat: String(latitude),
+      lon: String(longitude),
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${query.toString()}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error('Reverse geocoding failed.');
+    const result = await response.json();
+    return normalizeAddress(result.address);
+  };
+
+  const handlePosition = async (position) => {
     const { coords } = position;
     setPermissionState('granted');
     const location = [coords.latitude, coords.longitude];
+    const shouldResolveAddress = !lastGeocodedLocationRef.current
+      || distanceBetween(lastGeocodedLocationRef.current, location) >= GEOCODE_DISTANCE_METERS;
+    let address = currentAddress;
+
+    if (shouldResolveAddress) {
+      try {
+        address = await reverseGeocode(coords.latitude, coords.longitude);
+        lastGeocodedLocationRef.current = location;
+        setCurrentAddress(address);
+        setAddressError('');
+      } catch {
+        setAddressError('Address lookup is temporarily unavailable. GPS data is still live.');
+      }
+    }
+
     if (!initialCapturedRef.current) {
       initialCapturedRef.current = true;
       setInitialLocation({
@@ -80,8 +159,9 @@ export default function MapPage() {
         longitude: coords.longitude,
         accuracy: coords.accuracy,
         timestamp: position.timestamp,
+        address,
       });
-      sendLiveLocation(coords, 'initial');
+      sendLiveLocation(coords, 'initial', address);
     }
     setCenter(location);
     setSelectedLocation(location);
@@ -92,7 +172,7 @@ export default function MapPage() {
       updatedAt: new Date(),
     });
     setLocationState('live');
-    sendLiveLocation(coords, 'current');
+    sendLiveLocation(coords, 'current', address);
   };
 
   const startLiveTracking = () => {
@@ -104,6 +184,9 @@ export default function MapPage() {
     stopWatchingLocation();
     initialCapturedRef.current = false;
     setInitialLocation(null);
+    setCurrentAddress(null);
+    setAddressError('');
+    lastGeocodedLocationRef.current = null;
     setTelemetry({ accuracy: null, speed: null, heading: null, updatedAt: null });
     setLocationState('loading');
     setLocationError('');
@@ -131,6 +214,7 @@ export default function MapPage() {
       permission = status;
       setPermissionState(status.state);
       status.onchange = () => setPermissionState(status.state);
+      if (status.state === 'granted' && watchIdRef.current === null) startLiveTracking();
     }).catch(() => {});
     return () => {
       if (permission) permission.onchange = null;
@@ -216,16 +300,26 @@ export default function MapPage() {
             <span>Accuracy: <strong className="text-ink-100">{Math.round(initialLocation.accuracy)} m</strong></span>
             <span>Timestamp: <strong className="text-ink-100">{new Date(initialLocation.timestamp).toLocaleString()}</strong></span>
           </div>
+          <AddressFields address={initialLocation.address} />
         </div>
       )}
       {telemetry.updatedAt && (
         <div className="mb-4 grid max-w-xl grid-cols-2 gap-2 text-xs text-ink-400 sm:grid-cols-4">
+          <span>Latitude: <strong className="font-mono text-ink-100">{selectedLocation[0].toFixed(6)}</strong></span>
+          <span>Longitude: <strong className="font-mono text-ink-100">{selectedLocation[1].toFixed(6)}</strong></span>
           <span>Accuracy: <strong className="text-ink-100">{Math.round(telemetry.accuracy)} m</strong></span>
           <span>Speed: <strong className="text-ink-100">{telemetry.speed == null ? '—' : `${(telemetry.speed * 3.6).toFixed(1)} km/h`}</strong></span>
           <span>Heading: <strong className="text-ink-100">{telemetry.heading == null ? '—' : `${Math.round(telemetry.heading)}°`}</strong></span>
           <span>Updated: <strong className="text-ink-100">{telemetry.updatedAt.toLocaleTimeString()}</strong></span>
         </div>
       )}
+      {currentAddress && (
+        <div className="mb-4 rounded-xl border border-midnight-600 bg-midnight-900/40 p-4 text-sm text-ink-300">
+          <p className="font-semibold text-ink-100">Current Location Address</p>
+          <AddressFields address={currentAddress} />
+        </div>
+      )}
+      {addressError && <p className="mb-4 text-sm text-ink-500">{addressError}</p>}
       {mapError && <p className="mb-4 text-sm text-ink-500">{mapError}</p>}
       {loading ? <Loader label="Loading map" /> : (
         <GoogleStyleMap
