@@ -78,7 +78,7 @@ const updateMe = asyncHandler(async (req, res) => {
 
 // Store only coordinates supplied by the browser's W3C Geolocation API.
 const updateLocation = asyncHandler(async (req, res) => {
-  const { latitude, longitude, accuracy, speed, heading } = req.body;
+  const { latitude, longitude, accuracy, speed, heading, locationType = 'current' } = req.body;
   const values = [latitude, longitude, accuracy];
 
   if (!values.every((value) => Number.isFinite(Number(value)))) {
@@ -90,16 +90,24 @@ const updateLocation = asyncHandler(async (req, res) => {
     throw new Error('Invalid geographic coordinates.');
   }
 
-  req.user.liveLocation = {
+  const location = {
     latitude: Number(latitude),
     longitude: Number(longitude),
     accuracy: Math.max(0, Number(accuracy)),
-    speed: Number.isFinite(Number(speed)) && Number(speed) >= 0 ? Number(speed) : null,
-    heading: Number.isFinite(Number(heading)) && Number(heading) >= 0 ? Number(heading) % 360 : null,
-    updatedAt: new Date(),
   };
+
+  if (locationType === 'initial') {
+    req.user.initialLocation = { ...location, capturedAt: new Date() };
+  } else {
+    req.user.liveLocation = {
+      ...location,
+      speed: Number.isFinite(Number(speed)) && Number(speed) >= 0 ? Number(speed) : null,
+      heading: Number.isFinite(Number(heading)) && Number(heading) >= 0 ? Number(heading) % 360 : null,
+      updatedAt: new Date(),
+    };
+  }
   await req.user.save();
-  res.json({ success: true, liveLocation: req.user.liveLocation });
+  res.json({ success: true, initialLocation: req.user.initialLocation, liveLocation: req.user.liveLocation });
 });
 
 module.exports = { register, login, getMe, updateMe, updateLocation };

@@ -23,7 +23,9 @@ export default function MapPage() {
   const [mapError, setMapError] = useState('');
   const [copiedLocation, setCopiedLocation] = useState(false);
   const [telemetry, setTelemetry] = useState({ accuracy: null, speed: null, heading: null, updatedAt: null });
+  const [initialLocation, setInitialLocation] = useState(null);
   const watchIdRef = useRef(null);
+  const initialCapturedRef = useRef(false);
 
   const locationId = selectedLocation
     ? `${selectedLocation[0].toFixed(6)}, ${selectedLocation[1].toFixed(6)}`
@@ -50,7 +52,7 @@ export default function MapPage() {
     return 'Unable to read your location. Try again or tap the map to choose a point.';
   };
 
-  const sendLiveLocation = async (coords) => {
+  const sendLiveLocation = async (coords, locationType) => {
     const token = localStorage.getItem('shadowalert_token');
     if (!token || token === 'demo-token') return;
     try {
@@ -60,6 +62,7 @@ export default function MapPage() {
         accuracy: coords.accuracy,
         speed: coords.speed,
         heading: coords.heading,
+        locationType,
       });
     } catch {
       // GPS display remains local if the optional persistence request fails.
@@ -70,6 +73,16 @@ export default function MapPage() {
     const { coords } = position;
     setPermissionState('granted');
     const location = [coords.latitude, coords.longitude];
+    if (!initialCapturedRef.current) {
+      initialCapturedRef.current = true;
+      setInitialLocation({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        timestamp: position.timestamp,
+      });
+      sendLiveLocation(coords, 'initial');
+    }
     setCenter(location);
     setSelectedLocation(location);
     setTelemetry({
@@ -79,7 +92,7 @@ export default function MapPage() {
       updatedAt: new Date(),
     });
     setLocationState('live');
-    sendLiveLocation(coords);
+    sendLiveLocation(coords, 'current');
   };
 
   const startLiveTracking = () => {
@@ -89,6 +102,9 @@ export default function MapPage() {
     }
 
     stopWatchingLocation();
+    initialCapturedRef.current = false;
+    setInitialLocation(null);
+    setTelemetry({ accuracy: null, speed: null, heading: null, updatedAt: null });
     setLocationState('loading');
     setLocationError('');
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -189,6 +205,17 @@ export default function MapPage() {
           <button type="button" onClick={copyLocationId} className="text-glow hover:underline">
             {copiedLocation ? 'Copied' : 'Copy'}
           </button>
+        </div>
+      )}
+      {initialLocation && (
+        <div className="mb-4 rounded-xl border border-glow/30 bg-midnight-900/50 p-4 text-sm text-ink-300">
+          <p className="mb-2 font-semibold text-glow">Initial Location</p>
+          <div className="grid gap-1 sm:grid-cols-2">
+            <span>Latitude: <strong className="font-mono text-ink-100">{initialLocation.latitude.toFixed(6)}</strong></span>
+            <span>Longitude: <strong className="font-mono text-ink-100">{initialLocation.longitude.toFixed(6)}</strong></span>
+            <span>Accuracy: <strong className="text-ink-100">{Math.round(initialLocation.accuracy)} m</strong></span>
+            <span>Timestamp: <strong className="text-ink-100">{new Date(initialLocation.timestamp).toLocaleString()}</strong></span>
+          </div>
         </div>
       )}
       {telemetry.updatedAt && (

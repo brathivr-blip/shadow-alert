@@ -26,6 +26,12 @@ const userSchema = new mongoose.Schema(
       heading: { type: Number, min: 0, max: 360, default: null },
       updatedAt: { type: Date },
     },
+    initialLocation: {
+      latitude: { type: Number, min: -90, max: 90 },
+      longitude: { type: Number, min: -180, max: 180 },
+      accuracy: { type: Number, min: 0 },
+      capturedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
